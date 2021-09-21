@@ -1,0 +1,58 @@
+// Scraping Amazon for book recommendations - Part 2
+// This script retrieves ISBNs from previously retrieved Amazon product description pages of books in test set.
+
+// Activate puppeteer
+const puppeteer = require('puppeteer');
+const fs = require('fs').promises;
+
+// This function retrieves ISBNs from product description pages of books.
+async function getRecommendationIsbn(url, page, run) {
+  // Open page with book URL
+  await page.goto(url, {waitUntil: 'networkidle2'});
+  // Accept Cookies
+  if (run == 0) { 
+    await page.click('input[name="accept"]');
+  };
+  // Scroll down 
+  await page.evaluate(_ => {window.scrollBy(0, 2*window.innerHeight);});
+  await page.waitForTimeout(1000);
+
+  // Get Isbns
+  try {
+    const isbn_json = await page.evaluate(() => {return document.getElementsByClassName('a-begin a-carousel-container a-carousel-display-swap a-carousel-transition-swap p13n-sc-shoveler a-carousel-initialized')[0].dataset.aCarouselOptions});
+    return isbn_json
+  } catch (error) {
+    // Throw error if no recommendations available
+    const isbn_json = 'not found';
+    return isbn_json
+  }
+};
+
+// This function gets and iterates over books in test set.
+async function main(start, end) {
+  // Launch browser
+  const browser = await puppeteer.launch({headless: false});
+  const page = await browser.newPage();
+  // Get urls of books in test set
+  let eval_merge = await fs.readFile('');
+  let eval_merge_parsed = await JSON.parse(eval_merge);
+  // Iterate over books 
+  for(var i = start; i < end; i++) {
+      var run = i - start;
+      var item = await eval_merge_parsed[i];
+      // If book URL exists THEN call getRecommendionIsbn
+      if (item.url != 'not found') {
+        const rec_isbn = await getRecommendationIsbn(item.url, page, run);
+        // Mimic human behavior by waiting random time
+        const secondToWait = (Math.floor(Math.random() * 5) + 1)*1000;
+        await page.waitForTimeout(secondToWait);
+        // Save isbns
+        item['recommendations']= rec_isbn;
+      };
+  };
+  await fs.writeFile('',JSON.stringify(eval_merge_parsed))
+  await browser.close();
+};
+
+// Run scraper for entire test set.
+main(0,998);
